@@ -94,21 +94,40 @@ def generate_model(opt):
     return model
 
 
+# def load_pretrained_model(model, pretrain_path, model_name, n_finetune_classes):
+#     if pretrain_path:
+#         print('loading pretrained model {}'.format(pretrain_path))
+#         pretrain = torch.load(pretrain_path, map_location='cpu')
+
+#         model.load_state_dict(pretrain['state_dict'])
+#         tmp_model = model
+#         if model_name == 'densenet':
+#             tmp_model.classifier = nn.Linear(tmp_model.classifier.in_features,
+#                                              n_finetune_classes)
+#         else:
+#             tmp_model.fc = nn.Linear(tmp_model.fc.in_features,
+#                                      n_finetune_classes)
+
+#     return model
 def load_pretrained_model(model, pretrain_path, model_name, n_finetune_classes):
     if pretrain_path:
         print('loading pretrained model {}'.format(pretrain_path))
         pretrain = torch.load(pretrain_path, map_location='cpu')
+        
+        if pretrain_path.name == 'resnext-101-kinetics.pth' or pretrain_path.name == 'resnext-101-64f-kinetics-ucf101_split1.pth' :
+            pretrain['state_dict'] = {str(key).replace("module.", "") : value for key, value in pretrain['state_dict'].items()}
 
         model.load_state_dict(pretrain['state_dict'])
         tmp_model = model
         if model_name == 'densenet':
             tmp_model.classifier = nn.Linear(tmp_model.classifier.in_features,
                                              n_finetune_classes)
-        else:
-            tmp_model.fc = nn.Linear(tmp_model.fc.in_features,
-                                     n_finetune_classes)
+#         else:
+#             tmp_model.fc = nn.Linear(tmp_model.fc.in_features,
+#                                      n_finetune_classes)
 
     return model
+
 
 
 def make_data_parallel(model, is_distributed, device):

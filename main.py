@@ -31,14 +31,31 @@ from training import train_epoch
 from validation import val_epoch
 import inference
 
+from advertorch.attacks import LinfPGDAttack
+
+
+## ----------------------- APE-GAN ----------------------- ##
+from gan_models import GeneratorUCF3D as Generator, DiscriminatorUCF3D as Discriminator
+
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif classname.find('BatchNorm') != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)
+## ---------------------------- // ----------------------- ##         
+from scipy.stats import loguniform, beta
+from matplotlib import pyplot as plt
+
 
 def json_serial(obj):
     if isinstance(obj, Path):
         return str(obj)
 
 
-def get_opt():
-    opt = parse_opts()
+def get_opt(args=None):
+    opt = parse_opts(args)
 
     if opt.root_path is not None:
         opt.video_path = opt.root_path / opt.video_path
@@ -86,6 +103,7 @@ def get_opt():
 def resume_model(resume_path, arch, model):
     print('loading checkpoint {} model'.format(resume_path))
     checkpoint = torch.load(resume_path, map_location='cpu')
+
     assert arch == checkpoint['arch']
 
     if hasattr(model, 'module'):
@@ -99,12 +117,11 @@ def resume_model(resume_path, arch, model):
 def resume_train_utils(resume_path, begin_epoch, optimizer, scheduler):
     print('loading checkpoint {} train utils'.format(resume_path))
     checkpoint = torch.load(resume_path, map_location='cpu')
-
     begin_epoch = checkpoint['epoch'] + 1
-    if optimizer is not None and 'optimizer' in checkpoint:
-        optimizer.load_state_dict(checkpoint['optimizer'])
-    if scheduler is not None and 'scheduler' in checkpoint:
-        scheduler.load_state_dict(checkpoint['scheduler'])
+#     if optimizer is not None and 'optimizer' in checkpoint:
+#         optimizer.load_state_dict(checkpoint['optimizer'])
+#     if scheduler is not None and 'scheduler' in checkpoint:
+#         scheduler.load_state_dict(checkpoint['scheduler'])
 
     return begin_epoch, optimizer, scheduler
 
@@ -206,7 +223,7 @@ def get_train_utils(opt, model_parameters):
             optimizer, 'min', patience=opt.plateau_patience)
     else:
         scheduler = lr_scheduler.MultiStepLR(optimizer,
-                                             opt.multistep_milestones)
+                                             opt.multistep_milestones, gamma=0.1) #, gamma=0.1
 
     return (train_loader, train_sampler, train_logger, train_batch_logger,
             optimizer, scheduler)
@@ -300,15 +317,33 @@ def get_inference_utils(opt):
     return inference_loader, inference_data.class_names
 
 
-def save_checkpoint(save_file_path, epoch, arch, model, optimizer, scheduler):
+def save_checkpoint(save_file_path, epoch, arch, model, optimizer, scheduler, use_ape=False, D=None):
+    
+    if use_ape:
+        APE = model[0]
+        model = model[1]
+        
+        if hasattr(APE, 'module'):
+            ape_state_dict = APE.module.state_dict()
+        else:
+            ape_state_dict = APE.state_dict()
+            
+        if hasattr(D, 'module'):
+            D_state_dict = D.module.state_dict()
+        else:
+            D_state_dict = D.state_dict()
+        
     if hasattr(model, 'module'):
         model_state_dict = model.module.state_dict()
     else:
         model_state_dict = model.state_dict()
+
     save_states = {
         'epoch': epoch,
         'arch': arch,
         'state_dict': model_state_dict,
+        'generator': ape_state_dict if use_ape else None,
+        'discriminator': D_state_dict if D is not None else None,
         'optimizer': optimizer.state_dict(),
         'scheduler': scheduler.state_dict()
     }
@@ -335,6 +370,13 @@ def main_worker(index, opt):
     opt.is_master_node = not opt.distributed or opt.dist_rank == 0
 
     model = generate_model(opt)
+    D = None
+    ## 3D-APE-GAN
+    if opt.use_ape:
+        in_ch = 3
+        G = Generator(in_ch).to(opt.device)
+        D = Discriminator(in_ch).to(opt.device)
+    
     if opt.batchnorm_sync:
         assert opt.distributed, 'SyncBatchNorm only supports DistributedDataParallel.'
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -343,16 +385,31 @@ def main_worker(index, opt):
                                       opt.n_finetune_classes)
     if opt.resume_path is not None:
         model = resume_model(opt.resume_path, opt.arch, model)
+           
     model = make_data_parallel(model, opt.distributed, opt.device)
-
+    
     if opt.pretrain_path:
         parameters = get_fine_tuning_parameters(model, opt.ft_begin_module)
     else:
         parameters = model.parameters()
-
+    
+    ## 3D-APE-GAN
+    if opt.use_ape:
+        G = make_data_parallel(G, opt.distributed, opt.device)
+        D = make_data_parallel(D, opt.distributed, opt.device)
+        if opt.ape_path is not None:
+            checkpoint = torch.load(os.path.join(opt.ape_path))
+            G.load_state_dict(checkpoint['generator'])
+            D.load_state_dict(checkpoint['discriminator'])
+#             G.eval()
+        model = torch.nn.Sequential(G, model)
+    
+    # end-to-end G+C
+#     parameters = model.parameters()
+    
     if opt.is_master_node:
         print(model)
-
+    
     criterion = CrossEntropyLoss().to(opt.device)
 
     if not opt.no_train:
@@ -377,24 +434,89 @@ def main_worker(index, opt):
         tb_writer = None
 
     prev_val_loss = None
+    
+    ## Check if eps_range is set
+    if opt.eps_range:
+          eps_rvs = opt.eps - (loguniform.rvs(0.5, opt.eps+1, size=opt.n_epochs))
+#         eps_rvs = opt.eps - (loguniform.rvs(1, opt.eps+1, size=opt.n_epochs)-1)
+#         eps_rvs_1 = loguniform.rvs(1, opt.eps+1, size=opt.n_epochs)-1
+#         eps_rvs_2 = 12 - (loguniform.rvs(1, opt.eps+1, size=opt.n_epochs)-1)
+#         eps_rvs = np.append(eps_rvs_1[opt.n_epochs//2:], eps_rvs_2[:opt.n_epochs//2])
+
+        # Beta distribution 
+#         a, b = 1.5,1.5
+#         eps_rvs = beta.rvs(a, b, size=1000)*12
+#         eps_rvs[eps_rvs<0.7] = 0 
+#         plt.hist(eps_rvs, density=True, histtype='stepfilled', alpha=0.6)
+#         plt.savefig('beta_'+str(a)+'_'+str(b)+'.png')        
+        # Uniform, triangular distribution
+#         eps_rvs = np.random.uniform(0, opt.eps, size=opt.n_epochs)
+#         eps_rvs = np.random.triangular(0, 8, opt.eps, size=opt.n_epochs)
+#         eps_rvs = opt.eps - eps_rvs        
+
     for i in range(opt.begin_epoch, opt.n_epochs + 1):
         if not opt.no_train:
+            ''' 
+            Adaptive eps values 
+            '''
+#             if opt.eps_range:
+                
+#                 if i == opt.begin_epoch:
+#                     val_loader, val_logger = get_val_utils(opt)
+#                     linf_attack_range = np.linspace(0, opt.eps, 10)
+#                     (inputs, targets) = next(iter(val_loader))           
+#                     inputs = inputs.to(opt.device)
+#                     targets = targets.to(opt.device, non_blocking=True) 
+#                     adversary = LinfPGDAttack(predict=model, loss_fn=criterion,
+#                               eps=float(0), nb_iter=opt.attack_iter, eps_iter=float(opt.step_size))
+                    
+#                 if i == opt.begin_epoch or (i-1) % 5 == 0:
+#                     model.eval()
+#                     eps_loss = []
+#                     eps_prob = []
+#                     for eps in linf_attack_range:  
+                        
+#                         adversary.eps = float(eps/255)
+#                         adv_inputs = adversary.perturb(inputs, targets)
+                        
+#                         outputs = model(adv_inputs)
+#                         loss = criterion(outputs, targets).item() 
+                         
+#                         del adv_inputs; del outputs;
+                        
+#                         eps_loss.append(loss)
+# #                     eps_loss[-1] = eps_loss[-1] * 2
+# #                     eps_loss[-2] = eps_loss[-2] * 2 
+#                     eps_loss[-1] = 0.6*sum(eps_loss[:-1])
+#                     eps_prob = [ x / sum(eps_loss) for x in eps_loss]
+#                     print(sum(eps_loss))
+#                     model.train()
+                    
+#                 eps_rvs = np.random.choice(linf_attack_range, p=eps_prob, size=len(train_loader))
+#                 plt.clf()
+#                 plt.hist(eps_rvs, density=True, histtype='stepfilled', alpha=1.0)
+#                 plt.title(str(";".join([str(round(k,3)) for k in eps_loss])))
+#                 plt.savefig(os.path.join(os.path.dirname(opt.result_path), 'adaptive_' + str(i) + '.png'))        
+            
             if opt.distributed:
                 train_sampler.set_epoch(i)
             current_lr = get_lr(optimizer)
             train_epoch(i, train_loader, model, criterion, optimizer,
                         opt.device, current_lr, train_logger,
-                        train_batch_logger, tb_writer, opt.distributed)
+                        train_batch_logger, tb_writer, opt.distributed,
+                        opt.attack_type, eps_rvs if opt.eps_range else opt.eps, opt.step_size, opt.attack_iter, opt.use_ape, D)
 
             if i % opt.checkpoint == 0 and opt.is_master_node:
                 save_file_path = opt.result_path / 'save_{}.pth'.format(i)
                 save_checkpoint(save_file_path, i, opt.arch, model, optimizer,
-                                scheduler)
+                                scheduler, opt.use_ape, D)
 
         if not opt.no_val:
+            eps_rvs = np.random.choice(linf_attack_range, p=eps_prob, size=len(val_loader))
             prev_val_loss = val_epoch(i, val_loader, model, criterion,
                                       opt.device, val_logger, tb_writer,
-                                      opt.distributed)
+                                      opt.distributed, opt.attack_type, 
+                                      eps_rvs if opt.eps_range else opt.eps, opt.step_size, opt.attack_iter)
 
         if not opt.no_train and opt.lr_scheduler == 'multistep':
             scheduler.step()
@@ -408,7 +530,8 @@ def main_worker(index, opt):
 
         inference.inference(inference_loader, model, inference_result_path,
                             inference_class_names, opt.inference_no_average,
-                            opt.output_topk)
+                            opt.output_topk, opt.attack_type, opt.eps, 
+                            opt.step_size, opt.attack_iter)
 
 
 if __name__ == '__main__':

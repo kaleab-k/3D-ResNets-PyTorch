@@ -62,7 +62,7 @@ def get_training_data(video_path,
                                      target_transform=target_transform,
                                      video_loader=loader,
                                      video_path_formatter=video_path_formatter)
-
+    print("****", video_path, len(training_data))
     return training_data
 
 
@@ -102,7 +102,7 @@ def get_validation_data(video_path,
     if dataset_name == 'activitynet':
         validation_data = ActivityNet(video_path,
                                       annotation_path,
-                                      'validation',
+                                      'testing',
                                       spatial_transform=spatial_transform,
                                       temporal_transform=temporal_transform,
                                       target_transform=target_transform,

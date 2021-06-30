@@ -30,6 +30,7 @@ class VideoLoader(object):
             self.image_loader = image_loader
 
     def __call__(self, video_path, frame_indices):
+#         print("*-*-*-* ", video_path, frame_indices)
         video = []
         for i in frame_indices:
             image_path = video_path / self.image_name_formatter(i)

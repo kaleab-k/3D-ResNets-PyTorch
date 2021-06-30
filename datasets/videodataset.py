@@ -51,7 +51,7 @@ class VideoDataset(data.Dataset):
                  target_type='label'):
         self.data, self.class_names = self.__make_dataset(
             root_path, annotation_path, subset, video_path_formatter)
-
+#         print(len(self.data))
         self.spatial_transform = spatial_transform
         self.temporal_transform = temporal_transform
         self.target_transform = target_transform
@@ -88,6 +88,7 @@ class VideoDataset(data.Dataset):
                 label_id = -1
 
             video_path = video_paths[i]
+            
             if not video_path.exists():
                 continue
 
@@ -104,10 +105,11 @@ class VideoDataset(data.Dataset):
                 'label': label_id
             }
             dataset.append(sample)
-
+#         print(len(dataset))
         return dataset, idx_to_class
 
     def __loading(self, path, frame_indices):
+#         print("***** ", path, frame_indices)
         clip = self.loader(path, frame_indices)
         if self.spatial_transform is not None:
             self.spatial_transform.randomize_parameters()
@@ -118,6 +120,7 @@ class VideoDataset(data.Dataset):
 
     def __getitem__(self, index):
         path = self.data[index]['video']
+#         print("***** ", path)
         if isinstance(self.target_type, list):
             target = [self.data[index][t] for t in self.target_type]
         else:

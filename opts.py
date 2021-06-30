@@ -2,32 +2,32 @@ import argparse
 from pathlib import Path
 
 
-def parse_opts():
+def parse_opts(arguments=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--root_path',
-                        default=None,
+                        default=".",
                         type=Path,
                         help='Root directory path')
     parser.add_argument('--video_path',
-                        default=None,
+                        default="/cis/home/kkinfu/video_attack/datas/UCF101/frames",
                         type=Path,
                         help='Directory path of videos')
     parser.add_argument('--annotation_path',
-                        default=None,
+                        default="ucf101_json/ucf101_02.json",
                         type=Path,
                         help='Annotation file path')
     parser.add_argument('--result_path',
-                        default=None,
+                        default="results",
                         type=Path,
                         help='Result directory path')
     parser.add_argument(
         '--dataset',
-        default='kinetics',
+        default='ucf101',
         type=str,
         help='Used dataset (activitynet | kinetics | ucf101 | hmdb51)')
     parser.add_argument(
         '--n_classes',
-        default=400,
+        default=101,
         type=int,
         help=
         'Number of classes (activitynet: 200, kinetics: 400 or 600, ucf101: 101, hmdb51: 51)'
@@ -90,7 +90,7 @@ def parse_opts():
                               'random is uniform. '
                               '(random | center)'))
     parser.add_argument('--learning_rate',
-                        default=0.1,
+                        default=0.1, #0.1, 5e-4
                         type=float,
                         help=('Initial learning rate'
                               '(divided by 10 while training by lr scheduler)'))
@@ -100,7 +100,7 @@ def parse_opts():
                         type=float,
                         help='dampening of SGD')
     parser.add_argument('--weight_decay',
-                        default=1e-3,
+                        default=1e-3, #1e-5, 1e-3
                         type=float,
                         help='Weight Decay')
     parser.add_argument('--mean_dataset',
@@ -134,7 +134,7 @@ def parse_opts():
                         help='Type of LR scheduler (multistep | plateau)')
     parser.add_argument(
         '--multistep_milestones',
-        default=[50, 100, 150],
+        default=[50, 100, 150], #[50, 100, 150] #7
         type=int,
         nargs='+',
         help='Milestones of LR scheduler. See documentation of MultistepLR.')
@@ -287,7 +287,27 @@ def parse_opts():
                         default=-1,
                         type=int,
                         help='number of nodes for distributed training')
-
-    args = parser.parse_args()
+    ## Attack 
+    parser.add_argument('--eps', default=4, type=float, help='attack epsilon, eps/256')
+    parser.add_argument('--eps_range', action='store_true', help='If true, it uses log-uniform distribution (0,eps)')
+    parser.add_argument('--attack_iter', default=5, type=int, help='number of attack iterations')
+    parser.add_argument('--step_size', default=1.0, type=float, help='learning rate of attack')
+    parser.add_argument('--attack_type', default="clean", required=True, type=str, help='attack type')
+    parser.add_argument('--use_ape',
+                        action='store_true',
+                        help='If true, APE-GAN is used as preprocessing.')
+    parser.add_argument('--use_ape_D',
+                        action='store_true',
+                        help='If true, APE-GAN Discriminator is used as preprocessing.')
+    parser.add_argument('--ape_path',
+                        default="",
+                        type=Path,
+                        help='APE-GAN checkpoint path')
+    
+    
+    if arguments is None:
+        args = parser.parse_args()
+    else:
+        args = parser.parse_args(arguments)
 
     return args

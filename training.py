@@ -8,6 +8,8 @@ import torch.distributed as dist
 
 from utils import AverageMeter, calculate_accuracy
 
+from advertorch.attacks import LinfPGDAttack, L2PGDAttack
+import numpy as np
 
 def train_epoch(epoch,
                 data_loader,
@@ -19,10 +21,35 @@ def train_epoch(epoch,
                 epoch_logger,
                 batch_logger,
                 tb_writer=None,
-                distributed=False):
+                distributed=False,
+                attack_type="clean",
+                eps=4,
+                step_size=1,
+                attack_iter=5,
+                use_ape=False,
+                D=None):
+    
+    
     print('train at epoch {}'.format(epoch))
-
-    model.train()
+    
+    eps_rvs = None
+    if isinstance(eps, (list, np.ndarray)): 
+        eps_rvs = eps
+        
+    if use_ape:
+        model[0].train() #model[0].eval()
+        model[1].train()
+        D.train()
+        lr = 0.0002#0.0002
+        opt_G = torch.optim.Adam(model[0].parameters(), lr=lr, betas=(0.5, 0.999))
+#         opt_G = torch.optim.Adam(model.parameters(), lr=lr, betas=(0.5, 0.999))
+        loss_bce_G = torch.nn.BCELoss(reduction='sum').cuda(device)
+        loss_mse = torch.nn.MSELoss().cuda(device)
+        opt_D = torch.optim.Adam(D.parameters(), lr=lr, betas=(0.5, 0.999))
+        loss_bce = torch.nn.BCELoss().cuda(device)
+        
+    else:
+        model.train()
 
     batch_time = AverageMeter()
     data_time = AverageMeter()
@@ -31,19 +58,80 @@ def train_epoch(epoch,
 
     end_time = time.time()
     for i, (inputs, targets) in enumerate(data_loader):
+        
+        if eps_rvs is not None:
+            eps = eps_rvs[i]
+        
         data_time.update(time.time() - end_time)
-
+        inputs = inputs.to(device)
+#         inputs_min, inputs_max = torch.min(inputs), torch.max(inputs)
+#         inputs = ((inputs - inputs_min) / (inputs_max - inputs_min))
         targets = targets.to(device, non_blocking=True)
-        outputs = model(inputs)
+        
+        if attack_type == "clean":
+            outputs = model(inputs)
+        elif attack_type == "pgd_inf":
+            adversary = LinfPGDAttack(predict=model, loss_fn=criterion,
+                                         eps=float(eps/255), nb_iter=attack_iter, eps_iter=float(step_size/255))
+            adv_inputs = adversary.perturb(inputs, targets)
+            
+            if use_ape: 
+                eps1, eps2 = 0.7, 0.3
+                current_size = adv_inputs.size(0)
+                # Train D
+                t_real = torch.autograd.Variable(torch.ones(current_size).to(device))#.to(f'cuda:{model.device_ids[0]}'))
+                t_fake = torch.autograd.Variable(torch.zeros(current_size).to(device))#.to(f'cuda:{model.device_ids[0]}'))
+
+                y_real = D(adv_inputs).squeeze()
+                inputs_fake = model[0](adv_inputs)
+                
+                y_fake = D(inputs_fake).squeeze()
+                loss_D = loss_bce(y_real, t_real) + loss_bce(y_fake, t_fake)
+                opt_D.zero_grad()
+                loss_D.backward()
+                opt_D.step()
+                
+                # Train G
+                for _ in range(2):
+                    
+                    inputs_fake = model[0](adv_inputs)
+                    y_fake = D(inputs_fake).squeeze()
+                    ## L1, SSIM
+                    loss_G = eps1 * loss_mse(inputs_fake, inputs) + eps2 * loss_bce(y_fake, t_real) 
+                    opt_G.zero_grad()
+                    loss_G.backward()
+                    opt_G.step()
+#                     outputs = model(adv_inputs)
+#                     loss = criterion(outputs, targets)
+#                     loss += loss_G
+#                     opt_G.zero_grad()
+#                     loss.backward()
+#                     opt_G.step()
+#             else:
+            outputs = model(adv_inputs)
         loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+#             outputs = model(adv_inputs)
+        
+#         loss = criterion(outputs, targets)
+            
         acc = calculate_accuracy(outputs, targets)
 
         losses.update(loss.item(), inputs.size(0))
         accuracies.update(acc, inputs.size(0))
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+#         optimizer.zero_grad()
+#         loss.backward()
+#         optimizer.step()
+        
+#         if use_ape:
+#             loss_G = loss_bce_G(x_fake, inputs)
+#             opt_G.zero_grad()
+#             loss_G.backward()
+#             opt_G.step()
+
 
         batch_time.update(time.time() - end_time)
         end_time = time.time()
@@ -103,4 +191,4 @@ def train_epoch(epoch,
     if tb_writer is not None:
         tb_writer.add_scalar('train/loss', losses.avg, epoch)
         tb_writer.add_scalar('train/acc', accuracies.avg, epoch)
-        tb_writer.add_scalar('train/lr', accuracies.avg, epoch)
+        tb_writer.add_scalar('train/lr', current_lr, epoch)

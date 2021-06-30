@@ -20,6 +20,7 @@ def load_ground_truth(ground_truth_path, subset):
 
     ground_truth = []
     for video_id, v in data['database'].items():
+        
         if subset != v['subset']:
             continue
         this_label = v['annotations']['label']
@@ -46,7 +47,6 @@ def load_result(result_path, top_k, class_labels_map):
 
 def remove_nonexistent_ground_truth(ground_truth, result):
     exist_ground_truth = [line for line in ground_truth if line[0] in result]
-
     return exist_ground_truth
 
 
