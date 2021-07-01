@@ -24,7 +24,7 @@ from dataset import get_validation_data
 from utils import Logger, worker_init_fn, get_lr
 from validation import val_epoch
 
-from preprocess_data import *
+from datasets import preprocess_data
 
 import pdb
 
@@ -85,7 +85,7 @@ def preprocessing_fn_numpy(batch: np.ndarray):
         x_Image = []  # convert each frame to PIL Image
         for frame in x:
             x_Image.append(Image.fromarray(frame))
-        x_mars_preprocessed = scale_crop(x_Image, 0, opt)
+        x_mars_preprocessed = preprocess_data.scale_crop(x_Image, 0, opt)
 
         # reshape
         x_reshaped = []
@@ -228,7 +228,6 @@ def fit_preprocessing_fn_numpy(batch: np.ndarray):
 
 
 preprocessing_fn = fit_preprocessing_fn_numpy
-
 
 
 def make_model(
