@@ -8,7 +8,7 @@ import torch.distributed as dist
 
 from utils import AverageMeter, calculate_accuracy
 
-from advertorch.attacks import LinfPGDAttack, L2PGDAttack
+# from advertorch.attacks import LinfPGDAttack, L2PGDAttack
 import numpy as np
 
 def train_epoch(epoch,

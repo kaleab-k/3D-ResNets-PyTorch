@@ -1,12 +1,12 @@
 {
-    "_description": "UCF101 video classification with finetuning, contributed by MITRE Corporation",
+    "_description": "UCF101 video classification",
     "adhoc": null,
     "attack": {
         "knowledge": "white",
         "kwargs": {
-            "batch_size": 10,
-            "eps": 0.2,
-            "eps_step": 0.1,
+            "batch_size": 1,
+            "eps": 0.031,
+            "eps_step": 0.03,
             "minimal": false,
             "num_random_init": 0,
             "targeted": false
@@ -16,7 +16,7 @@
         "use_label": false
     },
     "dataset": {
-        "batch_size": 10,
+        "batch_size": 1,
         "framework": "numpy",
         "module": "armory.data.datasets",
         "name": "ucf101"
@@ -43,7 +43,7 @@
         },
         "module": "3dresnet_armory",
         "name": "get_art_model",
-        "weights_file": "adv_train.pth",
+        "weights_file": "JHUM_adv_train.pth",
         "wrapper_kwargs": {}
     },
     "scenario": {

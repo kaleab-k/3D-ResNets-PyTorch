@@ -31,7 +31,7 @@ from training import train_epoch
 from validation import val_epoch
 import inference
 
-from advertorch.attacks import LinfPGDAttack
+# from advertorch.attacks import LinfPGDAttack
 
 
 ## ----------------------- APE-GAN ----------------------- ##

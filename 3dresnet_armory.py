@@ -305,6 +305,9 @@ class OuterModel(torch.nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        
+        print(x.shape)
+        
         if self.max_frames:
             x = x[:, : self.max_frames]
 
@@ -332,7 +335,8 @@ def get_art_model(
         model,
         loss=torch.nn.CrossEntropyLoss(),
         optimizer=model.optimizer,
-        input_shape=(None, None, 240, 320, 3),
+        input_shape=(None, 240, 320, 3),
+        channels_first=False,
         nb_classes=101,
         clip_values=(0.0, 1.0),
         **wrapper_kwargs,
