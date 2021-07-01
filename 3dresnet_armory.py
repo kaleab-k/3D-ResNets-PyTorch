@@ -24,7 +24,7 @@ from dataset import get_validation_data
 from utils import Logger, worker_init_fn, get_lr
 from validation import val_epoch
 
-from .preprocess_data import *
+from preprocess_data import *
 
 import pdb
 
