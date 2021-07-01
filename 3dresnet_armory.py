@@ -231,7 +231,7 @@ preprocessing_fn = fit_preprocessing_fn_numpy
 
 
 def make_model(
-    model_status: str = "ucf101_trained", weights_path: Optional[str] = None
+    model_status: str = "ucf101_trained", weights_path: Optional[str] = None, use_ape = False
 ) -> Tuple[torch.nn.DataParallel, torch.optim.SGD]:
     statuses = ("ucf101_trained", "kinetics_pretrained")
     if model_status not in statuses:
@@ -239,8 +239,10 @@ def make_model(
     trained = model_status == "ucf101_trained"
     if not trained and weights_path is None:
         raise ValueError("weights_path cannot be None for 'kinetics_pretrained'")
-
+    
     opt.device = torch.device('cpu' if opt.no_cuda else 'cuda')
+    opt.use_ape = use_ape
+    
     if not opt.no_cuda:
         cudnn.benchmark = True
     if opt.accimage:
@@ -287,7 +289,7 @@ def make_model(
 
 class OuterModel(torch.nn.Module):
     def __init__(
-        self, weights_path: Optional[str], max_frames: int = 0, **model_kwargs,
+        self, weights_path: Optional[str], max_frames: int = 0, use_ape = False, **model_kwargs,
     ):
         """
         Max frames is the maximum number of input frames.
@@ -301,7 +303,7 @@ class OuterModel(torch.nn.Module):
             raise ValueError(f"max_frames {max_frames} cannot be negative")
         self.max_frames = max_frames
         self.model, self.optimizer = make_model(
-            weights_path=weights_path, **model_kwargs
+            weights_path=weights_path, use_ape=use_ape, **model_kwargs
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
