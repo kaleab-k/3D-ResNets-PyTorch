@@ -308,12 +308,12 @@ class OuterModel(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         
-        print(x.shape)
+        #print(x.shape)
         
         if self.max_frames:
             x = x[:, : self.max_frames]
 
-        print(x.shape)
+        #print(x.shape)
         
         if self.training:
             # Use preprocessing_fn_numpy in dataset preprocessing
