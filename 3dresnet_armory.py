@@ -41,7 +41,7 @@ from art.classifiers import PyTorchClassifier
 logger = logging.getLogger(__name__)
     
 opt = get_opt(['--attack_type','pgd_inf', '--n_classes', '101', '--model_depth', '101', '--model', 'resnext', 
-          '--no_mean_norm', '--no_std_norm', '--ape_path', 'checkpoint/21.tar']) # '--use_ape'
+          '--no_mean_norm', '--no_std_norm']) # '--use_ape'
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -263,7 +263,7 @@ def make_model(
     if opt.use_ape:
     #         G = make_data_parallel(G, opt.distributed, opt.device)
         if opt.ape_path is not None:
-            checkpoint = torch.load(opt.ape_path)
+            #checkpoint = torch.load(opt.ape_path)
     #             G.load_state_dict(checkpoint['generator'])
             G.load_state_dict(torch.load(opt.resume_path)['generator'])
             G = make_data_parallel(G, opt.distributed, opt.device)
@@ -338,7 +338,6 @@ def get_art_model(
         loss=torch.nn.CrossEntropyLoss(),
         optimizer=model.optimizer,
         input_shape=(None, 240, 320, 3),
-        channels_first=False,
         nb_classes=101,
         clip_values=(0.0, 1.0),
         **wrapper_kwargs,
