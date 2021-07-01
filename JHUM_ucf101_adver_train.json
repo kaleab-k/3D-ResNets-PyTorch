@@ -53,7 +53,7 @@
     },
     "sysconfig": {
         "docker_image": "twosixarmory/pytorch:0.13.3",
-        "external_github_repo": "kaleab-k/3D-ResNets-PyTorch", 
+        "external_github_repo": "kaleab-k/3D-ResNets", 
         "gpus": "all",
         "output_dir": null,
         "output_filename": null,
