@@ -6,8 +6,7 @@
         "kwargs": {
             "batch_size": 1,
             "eps": 0.031,
-            "eps_step": 0.03,
-            "minimal": false,
+            "eps_step": 0.003,
             "num_random_init": 0,
             "targeted": false
         },
