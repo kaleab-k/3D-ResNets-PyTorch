@@ -319,7 +319,7 @@ class OuterModel(torch.nn.Module):
             # Use preprocessing_fn_numpy in dataset preprocessing
             return self.model(x)
         else:
-            #x = preprocessing_fn_torch(x)
+            x = preprocessing_fn_torch(x)
             stack_outputs = self.model(x)
             output = stack_outputs.mean(axis=0, keepdims=True)
 
