@@ -209,11 +209,11 @@ def preprocessing_fn_torch(
     # video = torch.transpose(video, axes=(0, 4, 1, 2, 3))
 
     # normalize before changing channel position?
-    video = torch.transpose(video, 1, 4)
-    video = ((video * 255) - torch.from_numpy(MEAN).to(DEVICE)) / torch.from_numpy(
-        STD
-    ).to(DEVICE)
-    video = torch.transpose(video, 4, 1)
+    #video = torch.transpose(video, 1, 4)
+    #video = ((video * 255) - torch.from_numpy(MEAN).to(DEVICE)) / torch.from_numpy(
+    #    STD
+    #).to(DEVICE)
+    #video = torch.transpose(video, 4, 1)
 
     return video
 
