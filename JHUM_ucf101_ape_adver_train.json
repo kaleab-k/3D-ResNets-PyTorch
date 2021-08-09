@@ -7,8 +7,8 @@
             "batch_size": 1,
             "eps": 0.031,
             "eps_step": 0.003,
-            "num_random_init": 0,
             "max_iter": 5,
+            "num_random_init": 0,
             "targeted": false
         },
         "module": "art.attacks.evasion",
@@ -39,11 +39,12 @@
         },
         "model_kwargs": {
             "max_frames": 512,
+            "use_ape": true,
             "model_status": "kinetics_pretrained"
         },
         "module": "3dresnet_armory",
         "name": "get_art_model",
-        "weights_file": "JHUM_adv_train.pth",
+        "weights_file": "JHUM_ape_adv_train.pth",
         "wrapper_kwargs": {}
     },
     "scenario": {

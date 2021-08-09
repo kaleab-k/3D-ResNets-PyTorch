@@ -41,7 +41,7 @@ from art.classifiers import PyTorchClassifier
 logger = logging.getLogger(__name__)
     
 opt = get_opt(['--attack_type','pgd_inf', '--n_classes', '101', '--model_depth', '101', '--model', 'resnext', 
-          '--no_mean_norm', '--no_std_norm', '--no_cuda']) # '--use_ape'
+          '--no_mean_norm', '--no_std_norm']) # '--use_ape'
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
