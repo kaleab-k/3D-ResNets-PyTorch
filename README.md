@@ -1,72 +1,18 @@
-# 3D ResNets for Action Recognition
-
-## Update (2020/4/13)
-
-We published a paper on arXiv.
-
-[
-Hirokatsu Kataoka, Tenga Wakamiya, Kensho Hara, and Yutaka Satoh,  
-"Would Mega-scale Datasets Further Enhance Spatiotemporal 3D CNNs",  
-arXiv preprint, arXiv:2004.04968, 2020.
-](https://arxiv.org/abs/2004.04968)
-
-We uploaded the pretrained models described in this paper including ResNet-50 pretrained on the combined dataset with Kinetics-700 and Moments in Time.
-
-## Update (2020/4/10)
-
-We significantly updated our scripts. If you want to use older versions to reproduce our CVPR2018 paper, you should use the scripts in the CVPR2018 branch.
-
-This update includes as follows:
-* Refactoring whole project
-* Supporting the newer PyTorch versions
-* Supporting distributed training
-* Supporting training and testing on the Moments in Time dataset.
-* Adding R(2+1)D models
-* Uploading 3D ResNet models trained on the Kinetics-700, Moments in Time, and STAIR-Actions datasets
+# Analysis and Extensions of Adversarial Training for Video Classification
 
 ## Summary
 
-This is the PyTorch code for the following papers:
+This code includes training, fine-tuning and testing on different video datasets, including UCF-101, and HMDB-51.
+
+## Reference
+
+This code or pre-trained models are based on the following work:
 
 [
 Hirokatsu Kataoka, Tenga Wakamiya, Kensho Hara, and Yutaka Satoh,  
 "Would Mega-scale Datasets Further Enhance Spatiotemporal 3D CNNs",  
 arXiv preprint, arXiv:2004.04968, 2020.
 ](https://arxiv.org/abs/2004.04968)
-
-[
-Kensho Hara, Hirokatsu Kataoka, and Yutaka Satoh,  
-"Towards Good Practice for Action Recognition with Spatiotemporal 3D Convolutions",  
-Proceedings of the International Conference on Pattern Recognition, pp. 2516-2521, 2018.
-](https://ieeexplore.ieee.org/document/8546325)
-
-[
-Kensho Hara, Hirokatsu Kataoka, and Yutaka Satoh,  
-"Can Spatiotemporal 3D CNNs Retrace the History of 2D CNNs and ImageNet?",  
-Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pp. 6546-6555, 2018.
-](http://openaccess.thecvf.com/content_cvpr_2018/html/Hara_Can_Spatiotemporal_3D_CVPR_2018_paper.html)
-
-[
-Kensho Hara, Hirokatsu Kataoka, and Yutaka Satoh,  
-"Learning Spatio-Temporal Features with 3D Residual Networks for Action Recognition",  
-Proceedings of the ICCV Workshop on Action, Gesture, and Emotion Recognition, 2017.
-](http://openaccess.thecvf.com/content_ICCV_2017_workshops/papers/w44/Hara_Learning_Spatio-Temporal_Features_ICCV_2017_paper.pdf)
-
-This code includes training, fine-tuning and testing on Kinetics, Moments in Time, ActivityNet, UCF-101, and HMDB-51.
-
-## Citation
-
-If you use this code or pre-trained models, please cite the following:
-
-```bibtex
-@inproceedings{hara3dcnns,
-  author={Kensho Hara and Hirokatsu Kataoka and Yutaka Satoh},
-  title={Can Spatiotemporal 3D CNNs Retrace the History of 2D CNNs and ImageNet?},
-  booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
-  pages={6546--6555},
-  year={2018},
-}
-```
 
 ## Pre-trained models
 
@@ -94,8 +40,8 @@ r3d200_K_200ep.pth: --model resnet --model_depth 200 --n_pretrain_classes 700
 r3d200_KM_200ep.pth: --model resnet --model_depth 200 --n_pretrain_classes 1039
 ```
 
-Old pretrained models are still available [here](https://drive.google.com/drive/folders/1zvl89AgFAApbH0At-gMuZSeQB_LpNP-M?usp=sharing).  
-However, some modifications are required to use the old pretrained models in the current scripts.
+Old pretrained models are available [here](https://drive.google.com/drive/folders/1zvl89AgFAApbH0At-gMuZSeQB_LpNP-M?usp=sharing).  
+However, some modifcations are required to use the old pretrained models in the current scripts.
 
 ## Requirements
 
@@ -207,7 +153,7 @@ If you want a part of GPUs, use ```CUDA_VISIBLE_DEVICES=...```.
 ```bash
 python main.py --root_path ~/data --video_path kinetics_videos/jpg --annotation_path kinetics.json \
 --result_path results --dataset kinetics --model resnet \
---model_depth 50 --n_classes 700 --batch_size 128 --n_threads 4 --checkpoint 5
+--model_depth 50 --n_classes 700 --batch_size 128 --n_threads 4 --checkpoint 5 
 ```
 
 Continue Training from epoch 101. (~/data/results/save_100.pth is loaded.)
@@ -240,4 +186,44 @@ python main.py --root_path ~/data --video_path ucf101_videos/jpg --annotation_pa
 --result_path results --dataset ucf101 --n_classes 101 --n_pretrain_classes 700 \
 --pretrain_path models/resnet-50-kinetics.pth --ft_begin_module fc \
 --model resnet --model_depth 50 --batch_size 128 --n_threads 4 --checkpoint 5
+```
+
+Adversarial Training with PGD Linf attacks 
+```bash
+python main.py --root_path ~/data --video_path kinetics_videos/jpg --annotation_path kinetics.json \
+--result_path results --dataset kinetics --model resnet \
+--model_depth 50 --n_classes 700 --batch_size 128 --n_threads 4 --checkpoint 5 \
+--attack_type pgd_inf --eps 4 --attack_iter 10 --step_size 1
+```
+
+Adversarial Training with PGD Linf attacks 
+```bash
+python main.py --root_path ~/data --video_path kinetics_videos/jpg --annotation_path kinetics.json \
+--result_path results --dataset kinetics --model resnet \
+--model_depth 50 --n_classes 700 --batch_size 128 --n_threads 4 --checkpoint 5 \
+--attack_type pgd_inf --eps 4 --attack_iter 10 --step_size 1
+```
+
+Adaptive Adversarial Training with PGD Linf attacks 
+```bash
+python main.py --root_path ~/data --video_path kinetics_videos/jpg --annotation_path kinetics.json \
+--result_path results --dataset kinetics --model resnet \
+--model_depth 50 --n_classes 700 --batch_size 128 --n_threads 4 --checkpoint 5 \
+--attack_type pgd_inf --eps 12 --eps_range adaptive
+```
+
+Curriculum Adversarial Training with PGD Linf attacks 
+```bash
+python main.py --root_path ~/data --video_path kinetics_videos/jpg --annotation_path kinetics.json \
+--result_path results --dataset kinetics --model resnet \
+--model_depth 50 --n_classes 700 --batch_size 128 --n_threads 4 --checkpoint 5 \
+--attack_type pgd_inf --eps 12 --eps_range curriculum
+```
+
+Generative Adversarial Training with PGD Linf attacks 
+```bash
+python main.py --root_path ~/data --video_path kinetics_videos/jpg --annotation_path kinetics.json \
+--result_path results --dataset kinetics --model resnet \
+--model_depth 50 --n_classes 700 --batch_size 128 --n_threads 4 --checkpoint 5 \
+--attack_type pgd_inf --eps 4 --attack_iter 10 --step_size 1 --use_ape --ape_path ape/path
 ```
